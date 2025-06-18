@@ -1,43 +1,27 @@
 import {
-  AutoTokenizer,
-  AutoProcessor,
-  WhisperForConditionalGeneration,
-  TextStreamer,
+  pipeline,
   full,
 } from "@huggingface/transformers";
 
-const MAX_NEW_TOKENS = 448; // Maximum tokens for Whisper architecture (~5 minutes of speech)
-
 /**
- * This class uses the Singleton pattern to ensure that only one instance of the model is loaded.
+ * This class uses the Singleton pattern to ensure that only one instance of the pipeline is loaded.
  */
-class AutomaticSpeechRecognitionPipeline {
+class AutomaticSpeechRecognitionPipelineInstance {
   static model_id = "onnx-community/whisper-medium-ONNX";
-  static tokenizer = null;
-  static processor = null;
-  static model = null;
+  static transcriber = null;
 
   static async getInstance(progress_callback = null) {
-    this.tokenizer ??= AutoTokenizer.from_pretrained(this.model_id, {
-      progress_callback,
-    });
-    this.processor ??= AutoProcessor.from_pretrained(this.model_id, {
-      progress_callback,
-    });
-
-    this.model ??= WhisperForConditionalGeneration.from_pretrained(
-      this.model_id,
-      {
+    if (!this.transcriber) {
+      this.transcriber = await pipeline('automatic-speech-recognition', this.model_id, {
         dtype: {
           encoder_model: "fp32", // 'fp16' works too
           decoder_model_merged: "q4", // or 'fp32' ('fp16' is broken)
         },
         device: "webgpu",
         progress_callback,
-      },
-    );
-
-    return Promise.all([this.tokenizer, this.processor, this.model]);
+      });
+    }
+    return this.transcriber;
   }
 }
 
@@ -63,56 +47,70 @@ async function generate({ audio, language, isFinal }) {
   // Tell the main thread we are starting
   self.postMessage({ status: "start" });
 
-  // Retrieve the text-generation pipeline.
-  const [tokenizer, processor, model] =
-    await AutomaticSpeechRecognitionPipeline.getInstance();
+  // Retrieve the ASR pipeline
+  const transcriber = await AutomaticSpeechRecognitionPipelineInstance.getInstance();
 
   let startTime;
   let numTokens = 0;
   let tps;
-  const token_callback_function = () => {
+  
+  const callback_function = (output) => {
     startTime ??= performance.now();
-
-    if (numTokens++ > 0) {
+    numTokens++;
+    if (numTokens > 1) {
       tps = (numTokens / (performance.now() - startTime)) * 1000;
     }
-  };
-  const callback_function = (output) => {
+    
     self.postMessage({
       status: "update",
-      output,
+      output: Array.isArray(output) ? output.map(chunk => chunk.text).join(' ') : output,
       tps,
       numTokens,
     });
   };
 
-  const streamer = new TextStreamer(tokenizer, {
-    skip_prompt: true,
-    skip_special_tokens: true,
-    callback_function,
-    token_callback_function,
-  });
+  try {
+    // Use pipeline with chunking for long-form transcription
+    const options = {
+      language,
+      return_timestamps: true,
+      callback_function: !isFinal ? callback_function : undefined, // Only use streaming for real-time
+    };
+    
+    // Add chunking for final transcription (long-form)
+    if (isFinal) {
+      options.chunk_length_s = 30;
+      options.stride_length_s = 5;
+    }
 
-  const inputs = await processor(audio);
+    const output = await transcriber(audio, options);
+    
+    // Handle both string output and chunked output with timestamps
+    let transcriptText = "";
+    if (typeof output === 'string') {
+      transcriptText = output;
+    } else if (output.text) {
+      transcriptText = output.text;
+    } else if (Array.isArray(output)) {
+      transcriptText = output.map(chunk => chunk.text).join(' ');
+    }
 
-  const outputs = await model.generate({
-    ...inputs,
-    max_new_tokens: MAX_NEW_TOKENS,
-    language,
-    streamer,
-  });
-
-  const decoded = tokenizer.batch_decode(outputs, {
-    skip_special_tokens: true,
-  });
-
-  // Send the output back to the main thread
-  console.log("Worker: Sending result, isFinal:", isFinal, "output:", decoded[0]);
-  self.postMessage({
-    status: "complete",
-    output: decoded[0] || "",
-    isFinal: isFinal || false,
-  });
+    // Send the output back to the main thread
+    console.log("Worker: Sending result, isFinal:", isFinal, "output:", transcriptText);
+    self.postMessage({
+      status: "complete",
+      output: transcriptText || "",
+      isFinal: isFinal || false,
+    });
+  } catch (error) {
+    console.error("Error during transcription:", error);
+    self.postMessage({
+      status: "complete",
+      output: "",
+      isFinal: isFinal || false,
+    });
+  }
+  
   processing = false;
 }
 
@@ -124,13 +122,12 @@ async function load() {
     });
 
     // Load the pipeline and save it for future use.
-    const [tokenizer, processor, model] =
-      await AutomaticSpeechRecognitionPipeline.getInstance((x) => {
-        // We also add a progress callback to the pipeline so that we can
-        // track model loading.
-        console.log("Loading progress:", x);
-        self.postMessage(x);
-      });
+    const transcriber = await AutomaticSpeechRecognitionPipelineInstance.getInstance((x) => {
+      // We also add a progress callback to the pipeline so that we can
+      // track model loading.
+      console.log("Loading progress:", x);
+      self.postMessage(x);
+    });
 
     self.postMessage({
       status: "loading",
@@ -138,10 +135,10 @@ async function load() {
     });
 
     // Run model with dummy input to compile shaders
-    await model.generate({
-      input_features: full([1, 80, 3000], 0.0),
-      max_new_tokens: 1,
-    });
+    // Create a small dummy audio array (1 second of silence at 16kHz)
+    const dummyAudio = new Float32Array(16000).fill(0);
+    await transcriber(dummyAudio, { return_timestamps: false });
+    
     self.postMessage({ status: "ready" });
   } catch (error) {
     console.error("Error loading model:", error);
