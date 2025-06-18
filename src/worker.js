@@ -4,24 +4,42 @@ import {
 } from "@huggingface/transformers";
 
 /**
- * This class uses the Singleton pattern to ensure that only one instance of the pipeline is loaded.
+ * This class manages dynamic model loading based on user selection.
  */
 class AutomaticSpeechRecognitionPipelineInstance {
-  static model_id = "onnx-community/whisper-medium-ONNX";
-  static transcriber = null;
+  static transcribers = new Map(); // Store multiple models
+  static currentModel = 'base'; // Default to base
+  
+  static getModelId(modelType) {
+    const modelMap = {
+      'base': 'onnx-community/whisper-base-ONNX',
+      'medium': 'onnx-community/whisper-medium-ONNX'
+    };
+    return modelMap[modelType] || modelMap['base'];
+  }
 
-  static async getInstance(progress_callback = null) {
-    if (!this.transcriber) {
-      this.transcriber = await pipeline('automatic-speech-recognition', this.model_id, {
+  static async getInstance(modelType = 'base', progress_callback = null) {
+    const model_id = this.getModelId(modelType);
+    
+    if (!this.transcribers.has(modelType)) {
+      this.transcribers.set(modelType, await pipeline('automatic-speech-recognition', model_id, {
         dtype: {
           encoder_model: "fp32", // 'fp16' works too
           decoder_model_merged: "q4", // or 'fp32' ('fp16' is broken)
         },
         device: "webgpu",
         progress_callback,
-      });
+      }));
     }
-    return this.transcriber;
+    return this.transcribers.get(modelType);
+  }
+  
+  static setCurrentModel(modelType) {
+    this.currentModel = modelType;
+  }
+  
+  static getCurrentModel() {
+    return this.currentModel;
   }
 }
 
@@ -47,8 +65,9 @@ async function generate({ audio, language, isFinal }) {
   // Tell the main thread we are starting
   self.postMessage({ status: "start" });
 
-  // Retrieve the ASR pipeline
-  const transcriber = await AutomaticSpeechRecognitionPipelineInstance.getInstance();
+  // Retrieve the ASR pipeline for current model
+  const currentModel = AutomaticSpeechRecognitionPipelineInstance.getCurrentModel();
+  const transcriber = await AutomaticSpeechRecognitionPipelineInstance.getInstance(currentModel);
 
   let startTime;
   let numTokens = 0;
@@ -121,8 +140,9 @@ async function load() {
       data: "Loading model...",
     });
 
-    // Load the pipeline and save it for future use.
-    const transcriber = await AutomaticSpeechRecognitionPipelineInstance.getInstance((x) => {
+    // Load the pipeline for the current model
+    const currentModel = AutomaticSpeechRecognitionPipelineInstance.getCurrentModel();
+    const transcriber = await AutomaticSpeechRecognitionPipelineInstance.getInstance(currentModel, (x) => {
       // We also add a progress callback to the pipeline so that we can
       // track model loading.
       console.log("Loading progress:", x);
@@ -160,6 +180,23 @@ self.addEventListener("message", async (e) => {
 
     case "generate":
       generate(data);
+      break;
+      
+    case "setModel":
+      console.log("Setting model to:", data.model);
+      AutomaticSpeechRecognitionPipelineInstance.setCurrentModel(data.model);
+      // Pre-load the model if it hasn't been loaded yet
+      if (!AutomaticSpeechRecognitionPipelineInstance.transcribers.has(data.model)) {
+        self.postMessage({
+          status: "loading",
+          data: `Loading ${data.model} model...`,
+        });
+        await AutomaticSpeechRecognitionPipelineInstance.getInstance(data.model, (x) => {
+          console.log("Model loading progress:", x);
+          self.postMessage(x);
+        });
+        self.postMessage({ status: "ready" });
+      }
       break;
   }
 });

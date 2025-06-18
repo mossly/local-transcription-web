@@ -41,6 +41,7 @@ function App() {
   const [allowRealtimeProcessing, setAllowRealtimeProcessing] = useState(true);
   const [processingFinalTranscript, setProcessingFinalTranscript] = useState(false);
   const textareaRef = useRef(null);
+  const [selectedModel, setSelectedModel] = useState('base'); // Default to base model
 
   // We use the `useEffect` hook to setup the worker as soon as the `App` component is mounted.
   useEffect(() => {
@@ -306,6 +307,12 @@ function App() {
     if (recording) {
       recorderRef.current?.stop();
     } else {
+      // Send model selection to worker
+      worker.current.postMessage({ 
+        type: "setModel", 
+        data: { model: selectedModel } 
+      });
+      
       // Ensure audio context is resumed (required by browsers)
       if (audioContextRef.current && audioContextRef.current.state === "suspended") {
         await audioContextRef.current.resume();
@@ -402,6 +409,22 @@ function App() {
           <>
             {/* Controls */}
             <div className="flex gap-4 mb-6 items-center">
+              {/* Model Selection */}
+              <div className="flex items-center gap-2">
+                <label htmlFor="model-select" className="text-sm text-[#71767b]">
+                  Model:
+                </label>
+                <select
+                  id="model-select"
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  disabled={recording || processingFinalTranscript}
+                  className="px-3 py-2 bg-[#16181c] border border-[#2f3336] rounded-lg text-sm text-[#e7e9ea] focus:outline-none focus:border-[#479faf] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="base">Whisper Base</option>
+                  <option value="medium">Whisper Medium</option>
+                </select>
+              </div>
               <button
                 className={`flex items-center gap-2 px-8 py-3 rounded-full font-medium transition-all duration-200 hover:-translate-y-0.5 ${
                   processingFinalTranscript
