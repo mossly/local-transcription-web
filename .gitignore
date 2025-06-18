@@ -16,3 +16,6 @@ build
 *.bak
 .cache
 .parcel-cache
+.gitignore
+.claude
+.dockerignore

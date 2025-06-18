@@ -444,7 +444,7 @@ function App() {
                 
                 <div className="flex-1 bg-black/30 rounded-xl p-4 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-track-white/5 scrollbar-thumb-white/10 hover:scrollbar-thumb-white/15">
                   <p className="leading-relaxed text-sm break-words whitespace-pre-wrap">
-                    {realtimeText || (recording ? "Listening..." : "Click Start Recording to begin transcribing...")}
+                    {realtimeText || (recording ? "Listening..." : <span className="text-[#71767b]">Click Start Recording to begin transcribing...</span>)}
                   </p>
                   {recording && (
                     <div className="mt-3 pt-3 border-t border-white/10 text-xs text-[#71767b] transition-all duration-300">

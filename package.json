@@ -1,5 +1,5 @@
 {
-  "name": "local-transcription-web",
+  "name": "transcribe-locally",
   "version": "1.0.0",
   "description": "WebGPU-powered transcription service with AI formatting",
   "type": "module",
@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "serve": "vite preview --port 3000 --host"
+    "serve": "vite preview --port 27027 --host"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.0.2",
