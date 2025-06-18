@@ -13,7 +13,7 @@ class AutomaticSpeechRecognitionPipelineInstance {
   
   static getModelId(modelType) {
     const modelMap = {
-      'base': 'onnx-community/whisper-base-ONNX',
+      'base': 'onnx-community/whisper-base',
       'medium': 'onnx-community/whisper-medium-ONNX'
     };
     return modelMap[modelType] || modelMap['base'];

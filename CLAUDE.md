@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run serve` - Serve production build on port 27027 with host binding
 
 **Docker Deployment:**
-- `docker buildx build --platform linux/amd64 -t mossly/transcribe-locally:v1.2.2 -t mossly/transcribe-locally:latest --push .` - Build multi-arch image
+- `docker buildx build --platform linux/amd64 -t mossly/transcribe-locally:v1.2.3 -t mossly/transcribe-locally:latest --push .` - Build multi-arch image
 - `docker-compose up` - Run with Docker Compose (uses versioned tag)
 - Production deployment uses port 27027
 - Always use semantic versioning tags (v1.1.0, v1.2.0, etc.) for TrueNAS compatibility
@@ -28,10 +28,13 @@ This is a **client-side WebGPU-powered transcription application** that runs Ope
 
 **Key Technical Details:**
 - Uses WebGPU for AI model acceleration (falls back gracefully if unavailable)
-- Whisper model: `onnx-community/whisper-medium-ONNX` (~500MB download)
-- Audio processing: 16kHz sampling rate, 30-second maximum chunks
-- Real-time transcription with final transcript compilation
+- Whisper models: 
+  - Base: `onnx-community/whisper-base` (~39MB) - Default, faster performance
+  - Medium: `onnx-community/whisper-medium-ONNX` (~500MB) - Higher accuracy
+- Audio processing: 16kHz sampling rate, 30-second maximum chunks with 5-second overlap
+- Real-time transcription with final transcript compilation using automatic chunking
 - All model inference happens client-side - no server costs for AI processing
+- Language support: English and Te Reo Māori
 
 **State Management Flow:**
 1. User clicks "Load Model" → Worker downloads Whisper model from Hugging Face
@@ -59,4 +62,8 @@ The nginx configuration deliberately omits strict CORS headers that would preven
 Audio chunks are processed in overlapping segments to maintain real-time performance. The `MAX_SAMPLES` constant (480,000 samples = 30 seconds at 16kHz) defines the maximum processing window.
 
 **Model Loading:**
-The Whisper model downloads directly from Hugging Face to the user's browser - the server never handles model files or inference, keeping bandwidth costs minimal.
+The Whisper models download directly from Hugging Face to the user's browser:
+- Base model uses standard HuggingFace format: https://huggingface.co/onnx-community/whisper-base
+- Medium model uses ONNX-optimized variant for better WebGPU compatibility
+- Models are cached in browser after first load for instant switching
+- Server never handles model files or inference, keeping bandwidth costs minimal
