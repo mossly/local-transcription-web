@@ -8,6 +8,8 @@ const IS_WEBGPU_AVAILABLE = !!navigator.gpu;
 const WHISPER_SAMPLING_RATE = 16_000;
 const MAX_AUDIO_LENGTH = 30; // seconds
 const MAX_SAMPLES = WHISPER_SAMPLING_RATE * MAX_AUDIO_LENGTH;
+const MAX_RECORDING_TIME = 5 * 60 * 1000; // 5 minutes in milliseconds
+const WARNING_TIME = 4.5 * 60 * 1000; // 4:30 warning
 
 function App() {
   // Create a reference to the worker object.
@@ -278,12 +280,20 @@ function App() {
     return () => clearTimeout(timer);
   }, [tps]);
 
-  // Update elapsed time while recording
+  // Update elapsed time while recording and check for time limits
   useEffect(() => {
     let interval;
     if (recording && recordingStartTime) {
       interval = setInterval(() => {
-        setElapsedTime(Math.floor((Date.now() - recordingStartTime) / 1000));
+        const elapsed = Date.now() - recordingStartTime;
+        setElapsedTime(Math.floor(elapsed / 1000));
+        
+        // Auto-stop at 5 minutes
+        if (elapsed >= MAX_RECORDING_TIME) {
+          console.log('Auto-stopping recording: 5-minute limit reached');
+          recorderRef.current?.stop();
+          alert('Recording stopped automatically after 5 minutes (maximum limit)');
+        }
       }, 1000);
     }
     return () => {
@@ -420,8 +430,13 @@ function App() {
                 )}
               </button>
               {recording && (
-                <div className="px-4 py-2 bg-white/5 rounded-full text-sm font-mono">
+                <div className={`px-4 py-2 rounded-full text-sm font-mono transition-colors ${
+                  elapsedTime >= 270 ? 'bg-red-500/20 text-red-300' : // 4:30+
+                  elapsedTime >= 240 ? 'bg-yellow-500/20 text-yellow-300' : // 4:00+
+                  'bg-white/5'
+                }`}>
                   {formatElapsedTime(elapsedTime)}
+                  {elapsedTime >= 270 && <span className="ml-1 animate-pulse">⚠️</span>}
                 </div>
               )}
             </div>
@@ -490,7 +505,7 @@ function App() {
                     value={finalTranscript}
                     onChange={(e) => setFinalTranscript(e.target.value)}
                     disabled={recording || processingFinalTranscript}
-                    placeholder="Your complete transcripts will appear here after you stop recording."
+                    placeholder="Your complete transcripts will appear here after you stop recording. Maximum recording time: 5 minutes."
                     style={{ fontFamily: 'inherit' }}
                   />
                 </div>

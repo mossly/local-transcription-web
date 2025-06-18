@@ -6,7 +6,7 @@ import {
   full,
 } from "@huggingface/transformers";
 
-const MAX_NEW_TOKENS = 64;
+const MAX_NEW_TOKENS = 448; // Maximum tokens for Whisper architecture (~5 minutes of speech)
 
 /**
  * This class uses the Singleton pattern to ensure that only one instance of the model is loaded.
