@@ -9,6 +9,7 @@ import {
 class AutomaticSpeechRecognitionPipelineInstance {
   static transcribers = new Map(); // Store multiple models
   static currentModel = 'base'; // Default to base
+  static currentLanguage = 'en'; // Default to English
   
   static getModelId(modelType) {
     const modelMap = {
@@ -40,6 +41,14 @@ class AutomaticSpeechRecognitionPipelineInstance {
   
   static getCurrentModel() {
     return this.currentModel;
+  }
+  
+  static setCurrentLanguage(language) {
+    this.currentLanguage = language;
+  }
+  
+  static getCurrentLanguage() {
+    return this.currentLanguage;
   }
 }
 
@@ -90,8 +99,9 @@ async function generate({ audio, language, isFinal }) {
 
   try {
     // Use pipeline with chunking for long-form transcription
+    const currentLanguage = AutomaticSpeechRecognitionPipelineInstance.getCurrentLanguage();
     const options = {
-      language,
+      language: currentLanguage,
       return_timestamps: true,
       callback_function: !isFinal ? callback_function : undefined, // Only use streaming for real-time
     };
@@ -197,6 +207,11 @@ self.addEventListener("message", async (e) => {
         });
         self.postMessage({ status: "ready" });
       }
+      break;
+      
+    case "setLanguage":
+      console.log("Setting language to:", data.language);
+      AutomaticSpeechRecognitionPipelineInstance.setCurrentLanguage(data.language);
       break;
   }
 });

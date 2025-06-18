@@ -42,6 +42,7 @@ function App() {
   const [processingFinalTranscript, setProcessingFinalTranscript] = useState(false);
   const textareaRef = useRef(null);
   const [selectedModel, setSelectedModel] = useState('base'); // Default to base model
+  const [selectedLanguage, setSelectedLanguage] = useState('en'); // Default to English
 
   // We use the `useEffect` hook to setup the worker as soon as the `App` component is mounted.
   useEffect(() => {
@@ -307,10 +308,14 @@ function App() {
     if (recording) {
       recorderRef.current?.stop();
     } else {
-      // Send model selection to worker
+      // Send model and language selection to worker
       worker.current.postMessage({ 
         type: "setModel", 
         data: { model: selectedModel } 
+      });
+      worker.current.postMessage({ 
+        type: "setLanguage", 
+        data: { language: selectedLanguage } 
       });
       
       // Ensure audio context is resumed (required by browsers)
@@ -425,6 +430,23 @@ function App() {
                   <option value="medium">Whisper Medium</option>
                 </select>
               </div>
+              
+              {/* Language Selection */}
+              <div className="flex items-center gap-2">
+                <label htmlFor="language-select" className="text-sm text-[#71767b]">
+                  Language:
+                </label>
+                <select
+                  id="language-select"
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  disabled={recording || processingFinalTranscript}
+                  className="px-3 py-2 bg-[#16181c] border border-[#2f3336] rounded-lg text-sm text-[#e7e9ea] focus:outline-none focus:border-[#479faf] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="en">English</option>
+                  <option value="mi">Te Reo Māori</option>
+                </select>
+              </div>
               <button
                 className={`flex items-center gap-2 px-8 py-3 rounded-full font-medium transition-all duration-200 hover:-translate-y-0.5 ${
                   processingFinalTranscript
@@ -518,10 +540,10 @@ function App() {
                   </div>
                 </div>
                 
-                <div className="flex-1 bg-black/30 rounded-xl p-4 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-track-white/5 scrollbar-thumb-white/10 hover:scrollbar-thumb-white/15">
+                <div className="flex-1 bg-black/30 rounded-xl p-4 overflow-hidden">
                   <textarea
                     ref={textareaRef}
-                    className={`w-full h-full bg-transparent border-none outline-none resize-none leading-relaxed text-[#e7e9ea] placeholder-[#71767b] transition-opacity duration-200 ${
+                    className={`w-full h-full bg-transparent border-none outline-none resize-none leading-relaxed text-[#e7e9ea] placeholder-[#71767b] transition-opacity duration-200 scrollbar-thin scrollbar-track-white/5 scrollbar-thumb-white/10 hover:scrollbar-thumb-white/15 ${
                       recording || processingFinalTranscript 
                         ? 'opacity-50 cursor-not-allowed' 
                         : 'cursor-text'

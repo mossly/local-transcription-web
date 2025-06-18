@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run serve` - Serve production build on port 27027 with host binding
 
 **Docker Deployment:**
-- `docker buildx build --platform linux/amd64 -t mossly/transcribe-locally:v1.2.1 -t mossly/transcribe-locally:latest --push .` - Build multi-arch image
+- `docker buildx build --platform linux/amd64 -t mossly/transcribe-locally:v1.2.2 -t mossly/transcribe-locally:latest --push .` - Build multi-arch image
 - `docker-compose up` - Run with Docker Compose (uses versioned tag)
 - Production deployment uses port 27027
 - Always use semantic versioning tags (v1.1.0, v1.2.0, etc.) for TrueNAS compatibility

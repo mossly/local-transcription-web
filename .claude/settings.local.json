@@ -5,7 +5,10 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:github.com)",
       "Bash(curl:*)",
-      "Bash(docker buildx build:*)"
+      "Bash(docker buildx build:*)",
+      "Bash(npm run build:*)",
+      "Bash(rm:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

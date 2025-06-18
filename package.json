@@ -1,6 +1,6 @@
 {
   "name": "transcribe-locally",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "WebGPU-powered transcription service with AI formatting",
   "type": "module",
   "scripts": {
