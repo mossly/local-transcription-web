@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   transcribe-locally:
-    image: mossly/transcribe-locally:latest
+    image: mossly/transcribe-locally:v1.1.0
     container_name: transcribe-locally
     ports:
       - "27027:27027"

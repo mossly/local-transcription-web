@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import packageJson from "../package.json";
 
 import { AudioVisualizer } from "./components/AudioVisualizer";
 import Progress from "./components/Progress";
@@ -513,6 +514,11 @@ function App() {
             </div>
           </>
         )}
+        
+        {/* Version display */}
+        <div className="fixed bottom-4 right-4 text-xs text-[#71767b] bg-black/30 px-2 py-1 rounded">
+          v{packageJson.version}
+        </div>
       </div>
     </div>
   ) : (
@@ -520,6 +526,10 @@ function App() {
       WebGPU is not supported
       <br />
       by this browser :(
+      {/* Version display for unsupported browsers too */}
+      <div className="fixed bottom-4 right-4 text-xs text-[#71767b] bg-black/30 px-2 py-1 rounded">
+        v{packageJson.version}
+      </div>
     </div>
   );
 }
